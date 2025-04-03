@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.name }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.name }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name | default (include "oracle-db.fullname" .) }}
+      securityContext:
+        fsGroup: 54321
+        supplementalGroups: [54321]
+      containers:
+        - name: oracle-db
+          image: {{ .Values.image }}
+          securityContext:
+            allowPrivilegeEscalation: false
+          env:
+            - name: ORACLE_SID
+              value: {{ .Values.env.ORACLE_SID }}
+            - name: ORACLE_PWD
+              valueFrom:
+                secretKeyRef:
+                  name: oracle-secret
+                  key: password
+          ports:
+            - containerPort: {{ .Values.service.port }}
+          volumeMounts:
+            - mountPath: /opt/oracle/oradata
+              name: oracle-storage
+      volumes:
+        - name: oracle-storage
+          persistentVolumeClaim:
+            claimName: oracle-pvc

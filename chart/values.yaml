@@ -1,0 +1,27 @@
+# Default values for Oracle Database deployment.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+name: oracle-db
+replicas: 1
+image: container-registry.oracle.com/database/free:23.3.0.0
+storage:
+  size: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ""
+securityContext:
+  enabled: true
+
+env:
+  ORACLE_SID: FREE
+  ORACLE_PWD: "changeme"
+
+service:
+  type: ClusterIP
+  port: 1521
+  targetPort: 1521
+
+serviceAccount:
+  create: true
+  name: ""

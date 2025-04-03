@@ -1,0 +1,98 @@
+---
+# Source: oracle/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: release-name-oracle
+  labels:
+    app: oracle-db
+---
+# Source: oracle/templates/secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: oracle-secret
+type: Opaque
+data:
+  password: Y2hhbmdlbWU=
+---
+# Source: oracle/templates/pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: oracle-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName:
+---
+# Source: oracle/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: oracle-db-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: 1521
+      targetPort: 1521
+  selector:
+    app: oracle-db
+---
+# Source: oracle/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oracle-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oracle-db
+  template:
+    metadata:
+      labels:
+        app: oracle-db
+    spec:
+      serviceAccountName: release-name-oracle
+      securityContext:
+        fsGroup: 54321
+        supplementalGroups: [54321]
+      containers:
+        - name: oracle-db
+          image: container-registry.oracle.com/database/free:23.3.0.0
+          securityContext:
+            allowPrivilegeEscalation: false
+          env:
+            - name: ORACLE_SID
+              value: FREE
+            - name: ORACLE_PWD
+              valueFrom:
+                secretKeyRef:
+                  name: oracle-secret
+                  key: password
+          ports:
+            - containerPort: 1521
+          volumeMounts:
+            - mountPath: /opt/oracle/oradata
+              name: oracle-storage
+      volumes:
+        - name: oracle-storage
+          persistentVolumeClaim:
+            claimName: oracle-pvc
+---
+# Source: oracle/templates/scc.yaml
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: oracle-db-scc
+allowPrivilegedContainer: false
+fsGroup:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+users:
+  - system:serviceaccount:metallb-system:default
